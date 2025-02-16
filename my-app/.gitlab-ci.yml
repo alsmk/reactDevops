@@ -1,0 +1,67 @@
+stages:
+  - install
+  - test
+  - build
+  - dockerize
+  - push
+
+variables:
+  DOCKER_IMAGE: "your-dockerhub-username/my-react-app"
+  DOCKER_TAG: "latest"
+
+# Cache node_modules to speed up builds
+cache:
+  paths:
+    - node_modules/
+
+# Install dependencies
+install_dependencies:
+  stage: install
+  image: node:18
+  script:
+    - npm install
+  artifacts:
+    paths:
+      - node_modules/
+
+# Run tests with Jest (allowed to fail)
+run_tests:
+  stage: test
+  image: node:18
+  script:
+    - npm install jest --save-dev # Install Jest if not already installed
+    - npm test
+  allow_failure: true # Continue pipeline even if tests fail
+
+# Build the React app
+build_app:
+  stage: build
+  image: node:18
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - build/
+
+# Build the Docker image
+dockerize:
+  stage: dockerize
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker build -t $DOCKER_IMAGE:$DOCKER_TAG .
+  only:
+    - main
+
+# Push the Docker image to Docker Hub
+push_to_dockerhub:
+  stage: push
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+    - docker push $DOCKER_IMAGE:$DOCKER_TAG
+  only:
+    - main
